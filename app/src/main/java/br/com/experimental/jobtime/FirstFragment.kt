@@ -1,29 +1,30 @@
 package br.com.experimental.jobtime
 
+import android.graphics.Color
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
-import androidx.navigation.fragment.findNavController
 import br.com.experimental.jobtime.databinding.FragmentFirstBinding
-import com.google.android.material.timepicker.MaterialTimePicker
-import com.google.android.material.timepicker.TimeFormat
 import java.text.SimpleDateFormat
-import java.time.LocalDateTime
-import java.time.ZoneId
 import java.util.*
-import kotlin.time.Duration.Companion.seconds
-import kotlin.time.DurationUnit
-
 
 class FirstFragment : Fragment() {
-    private val TAG = FirstFragment::class.java.simpleName
+    companion object {
+        private val TAG = FirstFragment::class.java.simpleName
+    }
+
+    private var isStartedJob: Boolean = false
+
     private var time: SimpleDateFormat? = null
     private var date: SimpleDateFormat? = null
-    private var clockTime: Calendar? = null
-    private var clockStaticTime: Calendar? = null
+
+    private var clockWorkedHours: Calendar? = null
+    private var clockTimeNow: Calendar? = null
+    private var clockLeftHours: Calendar? = null
+
     private var clockThread: Thread? = null
 
     private var _binding: FragmentFirstBinding? = null
@@ -32,46 +33,51 @@ class FirstFragment : Fragment() {
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {
-
         _binding = FragmentFirstBinding.inflate(inflater, container, false)
-        val localDateTimeNow = LocalDateTime.now()
+        init()
+        syncClockUi()
+        return binding.root
+    }
 
-//        val picker =
-//            MaterialTimePicker.Builder()
-//                .setTimeFormat(TimeFormat.CLOCK_24H)
-//                .setHour(12)
-//                .setMinute(10)
-//                .build()
-//        fragmentManager?.let { picker.show(it, "tag") };
-
+    private fun init() {
         val dateFormat = "EE, dd MMM yyyy"
         val timeFormat = "HH:mm:ss"
 
         time = SimpleDateFormat(timeFormat, Locale.getDefault())
         date = SimpleDateFormat(dateFormat, Locale.getDefault())
 
-        clockStaticTime = Calendar.getInstance()
-        clockStaticTime?.set(Calendar.HOUR_OF_DAY, 0)
-        clockStaticTime?.set(Calendar.MINUTE, 0)
-        clockStaticTime?.set(Calendar.SECOND, 0)
-        clockStaticTime?.add(Calendar.HOUR_OF_DAY, 8)
-        clockStaticTime?.add(Calendar.MINUTE, 17)
+        clockLeftHours = Calendar.getInstance()
+        clockLeftHours?.set(Calendar.HOUR_OF_DAY, 0)
+        clockLeftHours?.set(Calendar.MINUTE, 0)
+        clockLeftHours?.set(Calendar.SECOND, 0)
+        clockLeftHours?.add(Calendar.HOUR_OF_DAY, 8)
+        clockLeftHours?.add(Calendar.MINUTE, 17)
 
-        clockTime = Calendar.getInstance()
-        clockTime?.set(Calendar.HOUR_OF_DAY, 0)
-        clockTime?.set(Calendar.MINUTE, 0)
-        clockTime?.set(Calendar.SECOND, 0)
+        clockWorkedHours = Calendar.getInstance()
+        clockWorkedHours?.set(Calendar.HOUR_OF_DAY, 0)
+        clockWorkedHours?.set(Calendar.MINUTE, 0)
+        clockWorkedHours?.set(Calendar.SECOND, 0)
 
-        syncClockUi()
-
-        return binding.root
+        clockTimeNow = Calendar.getInstance()
+        binding.dateTv.text = clockTimeNow?.time?.let { date?.format(it) }
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-//        binding.buttonFirst.setOnClickListener {
-//            findNavController().navigate(R.id.action_FirstFragment_to_SecondFragment)
-//        }
+        binding.fabAddTime.setOnClickListener {
+            if (!isStartedJob) {
+                binding.startJobTimeTv.text = clockTimeNow?.time?.let { time?.format(it) }
+                binding.startJobTimeTv.setTextColor(Color.BLACK)
+                clockTimeNow?.add(Calendar.HOUR_OF_DAY, 4)
+                binding.startBreakJobTimeTv.text = clockTimeNow?.time?.let { time?.format(it) }
+                clockTimeNow?.add(Calendar.HOUR_OF_DAY, 1)
+                binding.endBreakJobTimeTv.text = clockTimeNow?.time?.let { time?.format(it) }
+                clockTimeNow?.add(Calendar.HOUR_OF_DAY, 4)
+                clockTimeNow?.add(Calendar.MINUTE, 17)
+                binding.endJobTimeTv.text = clockTimeNow?.time?.let { time?.format(it) }
+                isStartedJob = true
+            }
+        }
     }
 
     override fun onDestroyView() {
@@ -100,28 +106,17 @@ class FirstFragment : Fragment() {
     private fun updateClock() {
         activity?.runOnUiThread {
             try {
-                val c: Calendar = Calendar.getInstance()
-                binding.timeTv.text = time?.format(c.time)
-                binding.dateTv.text = date?.format(c.time)
+                clockTimeNow = Calendar.getInstance()
 
-                clockStaticTime?.add(Calendar.SECOND, -1)
-                binding.timeWorkedTv.text = clockStaticTime?.time?.let { time?.format(it) }
-
-                clockTime?.add(Calendar.SECOND, 1)
-                binding.timeToWorkTv.text = clockTime?.time?.let { time?.format(it) }
+                if (isStartedJob) {
+                    clockLeftHours?.add(Calendar.SECOND, -1)
+                    clockWorkedHours?.add(Calendar.SECOND, 1)
+                    binding.workedHours.text = clockWorkedHours?.time?.let { time?.format(it) }
+                    binding.leftHours.text = clockLeftHours?.time?.let { time?.format(it) }
+                }
             } catch (e: Exception) {
                 Log.e(TAG, e.toString())
             }
         }
     }
-}
-
-fun localDateTimeToDate(localDateTime: LocalDateTime): Date {
-    return Date.from(localDateTime.atZone(ZoneId.systemDefault()).toInstant());
-}
-
-fun dateToCalendar(date: Date): Calendar {
-    val cal = Calendar.getInstance()
-    cal.time = date
-    return cal
 }
